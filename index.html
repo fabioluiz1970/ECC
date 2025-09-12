@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Cronograma de Evento</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        :root {
+            --primary-color: #4f46e5;
+            --primary-hover: #4338ca;
+            --secondary-color: #10b981;
+            --danger-color: #ef4444;
+            --danger-hover: #dc2626;
+            --background-color: #f3f4f6;
+            --card-background: #ffffff;
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-primary);
+        }
+        .tab-button {
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            border-radius: 0.5rem 0.5rem 0 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            border-bottom: 3px solid transparent;
+        }
+        .tab-button.active { color: var(--primary-color); border-bottom-color: var(--primary-color); background-color: var(--card-background); }
+        .tab-content { 
+            display: none; 
+            padding: 1.5rem; 
+            background-color: var(--card-background); 
+            border-radius: 0 0.5rem 0.5rem 0.5rem; 
+            opacity: 0; 
+            transition: opacity 0.3s ease-in-out; 
+        }
+        .tab-content.active { 
+            display: block; 
+            opacity: 1; 
+        }
+        
+        .time-input, .planned-time-input {
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            text-align: center;
+            font-weight: 600;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .time-input:focus, .planned-time-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.3);
+        }
+        .time-input { padding: 0.5rem; font-size: 1rem; }
+        .planned-time-input { padding: 0.25rem; font-size: 0.75rem; width: 55px; }
+
+        .btn { padding: 0.5rem 1rem; border-radius: 0.375rem; font-weight: 600; transition: all 0.2s ease; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; border: none; cursor: pointer; }
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-primary:hover { background-color: var(--primary-hover); transform: translateY(-1px); box-shadow: 4px 4px 10px rgba(0,0,0,0.1); }
+        .btn-danger { background-color: var(--danger-color); color: white; }
+        .btn-danger:hover { background-color: var(--danger-hover); }
+        .btn-success { background-color: var(--secondary-color); color: white; }
+        .btn-success:hover { background-color: #059669; }
+        .btn-icon { padding: 0.5rem; }
+
+        .status-card-in-progress { border-left: 4px solid #3b82f6; }
+        .status-card-on-time { border-left: 4px solid #22c55e; }
+        .status-card-late { border-left: 4px solid #f59e0b; }
+        .status-card-very-late { border-left: 4px solid var(--danger-color); }
+        .status-card-upcoming { border-left: 4px solid #9ca3af; }
+
+        .spinner { border: 4px solid rgba(255, 255, 255, 0.3); border-top: 4px solid #fff; border-radius: 50%; width: 1.25rem; height: 1.25rem; animation: spin 1s linear infinite; }
+        .spinner-dark { border-color: rgba(0,0,0,0.2); border-top-color: var(--text-primary); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .modal { display: none; position: fixed; z-index: 50; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0, 0, 0, 0.5); justify-content: center; align-items: center; }
+        .modal-content { background-color: var(--card-background); padding: 2rem; border-radius: 0.75rem; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); width: 90%; max-width: 500px; text-align: center; animation: modal-fade-in 0.3s ease; }
+        @keyframes modal-fade-in { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .alert-card { background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 1rem; margin-top: 1rem; border-radius: 0.375rem; }
+
+        /* Estilo para o contêiner de rolagem da tabela */
+        .table-container {
+            max-height: 60vh; /* Altura máxima da tabela, ajuste conforme necessário */
+            overflow-y: auto;
+            border-radius: 0.5rem;
+        }
+
+    </style>
+</head>
+<body class="p-2 sm:p-4">
+    <!-- Header -->
+    <div>
+        <header class="flex flex-col sm:flex-row justify-between items-center mb-6 p-4 bg-gradient-to-r from-gray-800 to-gray-700 text-white rounded-xl shadow-lg">
+            <h1 class="text-2xl sm:text-3xl font-bold mb-2 sm:mb-0">Dashboard do Evento</h1>
+            <div class="flex flex-col items-end space-y-2 relative">
+                <div id="relogio" class="text-xl sm:text-2xl font-bold"></div>
+                <div id="status-container" class="text-right">
+                    <div id="status-geral" class="text-lg font-semibold"></div>
+                    <div id="fim-previsto" class="text-sm font-light text-gray-400"></div>
+                    <p id="user-id" class="text-xs mt-1 text-gray-400 flex items-center justify-end">
+                        <span id="user-id-text"></span>
+                        <button id="copy-user-id" class="ml-2 p-1 rounded-full bg-gray-600 hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-white">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        </button>
+                    </p>
+                    <div id="copy-message" class="absolute right-0 bottom-full mb-2 bg-black text-white text-xs py-1 px-2 rounded opacity-0 transition-opacity duration-300">Copiado!</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <div class="flex border-b border-gray-200 overflow-x-auto bg-white" id="main-tabs">
+            <button class="tab-button active" onclick="window.openTab(event, 'sabado')">Sábado</button>
+            <button class="tab-button" onclick="window.openTab(event, 'domingo')">Domingo</button>
+            <button class="tab-button" onclick="window.openTab(event, 'programacaoCompleta')">Programação Completa</button>
+            <button class="tab-button" onclick="window.openTab(event, 'resumoSabado')">Resumo Sábado</button>
+            <button class="tab-button" onclick="window.openTab(event, 'resumoDomingo')">Resumo Domingo</button>
+            <button class="tab-button" onclick="window.openTab(event, 'publicarCompartilhar')">Publicar e Compartilhar</button>
+        </div>
+    </div>
+    <!-- Tab Content -->
+    <div id="sabado" class="tab-content active"><div id="sabado-container" class="space-y-6"></div></div>
+    <div id="domingo" class="tab-content"><div id="domingo-container" class="space-y-6"></div></div>
+    <div id="resumoSabado" class="tab-content">
+        <div class="flex flex-wrap justify-between items-center gap-4 mb-4">
+            <h1 class="text-2xl font-bold">Resumo de Sábado</h1>
+            <div class="flex gap-2">
+                 <button onclick="window.exportDayToCsv('sabado')" class="btn btn-success">Exportar CSV</button>
+            </div>
+        </div>
+        <div id="resumo-sabado-container"></div>
+    </div>
+    <div id="resumoDomingo" class="tab-content">
+         <div class="flex flex-wrap justify-between items-center gap-4 mb-4">
+            <h1 class="text-2xl font-bold">Resumo de Domingo</h1>
+            <div class="flex gap-2">
+                 <button onclick="window.exportDayToCsv('domingo')" class="btn btn-success">Exportar CSV</button>
+            </div>
+        </div>
+        <div id="resumo-domingo-container"></div>
+    </div>
+    <div id="programacaoCompleta" class="tab-content">
+        <div class="flex flex-wrap justify-between items-center gap-4 mb-4">
+            <h1 class="text-2xl font-bold">Programação Completa</h1>
+            <div class="flex gap-2">
+                <button onclick="window.exportAllToCsv()" class="btn btn-success">Exportar Tudo (CSV)</button>
+            </div>
+        </div>
+        <div class="table-container">
+            <div id="programacao-completa-container"></div>
+        </div>
+    </div>
+    <div id="publicarCompartilhar" class="tab-content">
+        <h2 class="text-2xl font-bold mb-4">Gerenciar Equipes e Compartilhar</h2>
+        <!-- Gerenciamento de Equipes -->
+        <div class="p-4 rounded-lg bg-gray-100 shadow-inner mb-6">
+            <h3 class="font-bold text-lg mb-2">Gerenciar Equipes</h3>
+            <div class="flex flex-wrap gap-2 mb-4">
+                <input type="text" id="new-team-input" placeholder="Nome da nova equipe..." class="flex-1 p-2 rounded-md border border-gray-300 focus:ring-2 focus:ring-indigo-300">
+                <button onclick="window.addTeam()" class="btn btn-primary">Adicionar</button>
+            </div>
+            <div id="teams-list" class="flex flex-wrap gap-2"></div>
+        </div>
+        <!-- Seção de Publicação e Atualização -->
+        <div class="p-4 rounded-lg bg-gray-100 shadow-inner mb-6">
+            <h3 class="font-bold text-lg mb-2">Publicar Cronograma</h3>
+            <button id="publish-button" class="w-full mt-2 p-3 btn btn-success text-lg">Publicar Cronograma Atual</button>
+            <div id="publishing-status" class="mt-2 text-center text-sm font-semibold text-gray-600"></div>
+            <p id="last-published-time" class="mt-4 text-sm text-gray-500 text-center"></p>
+        </div>
+
+        <!-- Seção de Geração de Links Personalizados -->
+        <div class="p-4 rounded-lg bg-gray-100 shadow-inner mb-6">
+            <h3 class="font-bold text-lg mb-2">Gerar Links Personalizados</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                <div class="flex flex-col">
+                    <label for="link-team-select" class="text-sm font-medium text-gray-700">Equipe:</label>
+                    <select id="link-team-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring focus:ring-indigo-200 focus:border-indigo-500"></select>
+                </div>
+                <div class="flex flex-col">
+                    <label for="link-view-select" class="text-sm font-medium text-gray-700">Visualização:</label>
+                    <select id="link-view-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring focus:ring-indigo-200 focus:border-indigo-500">
+                        <option value="full">Programação Completa</option>
+                        <option value="summary">Resumo do Dia</option>
+                        <option value="team">Visualização da Equipe</option>
+                    </select>
+                </div>
+                <div class="flex flex-col justify-end">
+                    <button id="generate-link-button" class="btn btn-primary">Gerar Link</button>
+                </div>
+            </div>
+            <div id="generated-links-container" class="mt-4 space-y-2"></div>
+        </div>
+
+        <div id="team-links-container" class="mt-8 space-y-4"></div>
+    </div>
+
+    <!-- Modals -->
+    <div id="deleteModal" class="modal"><div class="modal-content"><h2 class="text-xl font-bold mb-4">Confirmar Exclusão</h2><p>Tem certeza de que deseja remover esta atividade?</p><div class="mt-6 flex justify-center gap-4"><button id="confirmDelete" class="btn btn-danger">Remover</button><button id="cancelDelete" class="btn bg-gray-200 hover:bg-gray-300">Cancelar</button></div></div></div>
+    <div id="notificationModal" class="modal"><div class="modal-content"><h2 id="notificationTitle" class="text-xl font-bold mb-4">Aviso</h2><p id="notificationMessage">Mensagem aqui.</p><div class="mt-6 flex justify-center"><button id="notificationClose" class="btn btn-primary">OK</button></div></div></div>
+    <div id="public-view-modal" class="modal"><div class="modal-content !w-[95%] sm:!w-[80%] max-w-5xl bg-gray-100"><h2 id="public-view-title" class="text-2xl font-bold mb-4">Cronograma da Equipe</h2><div id="public-view-content" class="space-y-4 max-h-[70vh] overflow-y-auto"></div><button onclick="window.closePublicView()" class="mt-6 btn btn-danger">Fechar</button></div></div>
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc, updateDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables provided by the Canvas environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        const teamParam = urlParams.get('team');
+        const viewParam = urlParams.get('view');
+        let db, auth, userId;
+        let cronogramaData = {};
+        let teams = [];
+        let activeDay = 'sabado';
+        let isSaving = false;
+        let itemToDelete = { day: null, index: null };
+
+        setLogLevel('debug');
+
+        const defaultCronogramaData = {
+             "sabado": [{"atividade":"RECEPÇÃO IPVM","local":"IPVM","inicioPrevisto":"06:00","fimPrevisto":"07:00","inicioReal":"","fimReal":"","observacoes":"","equipe":"","alerta_mensagem":"","alerta_equipe":"","alerta_delay_minutos":null},{"atividade":"VIAGEM","local":"ÔNIBUS","inicioPrevisto":"07:00","fimPrevisto":"09:20","inicioReal":"","fimReal":"","observacoes":"","equipe":"","alerta_mensagem":"","alerta_equipe":"","alerta_delay_minutos":null},{"atividade":"RECEPÇÃO RECANTO","local":"SALÃO PALESTRA","inicioPrevisto":"09:20","fimPrevisto":"09:40","inicioReal":"","fimReal":"","observacoes":"","equipe":"","alerta_mensagem":"","alerta_equipe":"","alerta_delay_minutos":null}],
+             "domingo": [{"atividade":"PREPARAR CAFÉ HAVAIANO","local":"REFEITÓRIO","inicioPrevisto":"06:00","fimPrevisto":"07:00","inicioReal":"","fimReal":"","observacoes":"","equipe":"","alerta_mensagem":"","alerta_equipe":"","alerta_delay_minutos":null},{"atividade":"DESPERTAR ENCONTRISTAS","local":"ALOJAMENTO","inicioPrevisto":"07:00","fimPrevisto":"07:25","inicioReal":"","fimReal":"","observacoes":"","equipe":"","alerta_mensagem":"","alerta_equipe":"","alerta_delay_minutos":null}]
+        };
+        const defaultTeams = ["Equipe Cozinha", "Equipe Dinâmica", "Equipe Palestra"];
+        
+        // --- Funções para a API do Gemini ---
+        const callGeminiAPI = async (prompt, retries = 3, delay = 1000) => {
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+            };
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(apiUrl, { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json' }, 
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const result = await response.json();
+                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (text) return text;
+                    throw new Error("Invalid API response.");
+                } catch (error) {
+                    console.error(`Attempt ${i + 1} failed:`, error);
+                    if (i < retries - 1) await new Promise(res => setTimeout(res, delay *= 2));
+                }
+            }
+            return null;
+        };
+        
+        window.generateAlertMessage = async (event, day, index) => {
+            const button = event.currentTarget;
+            button.innerHTML = '<div class="spinner spinner-dark w-4 h-4"></div>';
+            button.disabled = true;
+            const item = cronogramaData[day][index];
+            const alertSection = button.closest('.alert-section');
+            const team = alertSection.querySelector('.alert-team-select').value;
+            const delay = alertSection.querySelector('.alert-delay-input').value;
+            if (!team || !delay) {
+                showNotification("Campos em falta", "Por favor, defina a equipe do alerta e os minutos de antecedência.");
+            } else {
+                const prompt = `Crie uma mensagem de alerta curta, empolgante e direta para a equipe "${team}" se preparar para a atividade "${item.atividade}". Eles serão notificados ${delay} minutos antes do fim da atividade anterior. A mensagem deve ser em português do Brasil e ter no máximo 100 caracteres.`;
+                const generatedMessage = await callGeminiAPI(prompt);
+                if (generatedMessage) {
+                    alertSection.querySelector('.alert-message-input').value = generatedMessage.replace(/"/g, '');
+                } else {
+                    showNotification("Erro", "Não foi possível gerar a mensagem. Tente novamente.");
+                }
+            }
+            button.innerHTML = '✨';
+            button.disabled = false;
+        };
+        
+        // --- Lógica Principal do Aplicativo ---
+        const initFirebase = async () => {
+            if (!Object.keys(firebaseConfig).length) return console.error("Firebase config is missing.");
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            if (teamParam) {
+                // Modo de visualização pública
+                await signInAnonymously(auth);
+                document.getElementById('user-id').classList.add('hidden');
+                document.getElementById('main-tabs').classList.add('hidden');
+                document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+                renderPublicView();
+            } else {
+                // Modo de edição
+                await authenticateUser();
+                setupFirestoreListeners();
+                setupEventListeners();
+                setInterval(checkAndFireAlerts, 30000); // Checa alertas a cada 30 segundos
+            }
+        };
+
+        const authenticateUser = async () => {
+            try {
+                if (initialAuthToken) await signInWithCustomToken(auth, initialAuthToken);
+                else await signInAnonymously(auth);
+                userId = auth.currentUser?.uid;
+                if (userId) document.getElementById('user-id-text').textContent = `ID: ${userId}`;
+            } catch (error) { console.error("Authentication failed:", error); }
+        };
+
+        const setupFirestoreListeners = () => {
+            if (!userId) return;
+            const cronogramaRef = doc(db, 'artifacts', appId, 'users', userId, 'cronograma', 'data');
+            const teamsRef = doc(db, 'artifacts', appId, 'users', userId, 'teams', 'data');
+            const publicationRef = doc(db, 'artifacts', appId, 'users', userId, 'publication', 'status');
+
+            onSnapshot(teamsRef, async (docSnap) => {
+                teams = (docSnap.exists() && docSnap.data().teams) ? docSnap.data().teams : defaultTeams;
+                if (!docSnap.exists()) await setDoc(teamsRef, { teams: defaultTeams });
+                renderCronograma(activeDay);
+                if (document.getElementById('publicarCompartilhar').classList.contains('active')) renderPublicarCompartilhar();
+            });
+            onSnapshot(cronogramaRef, async (docSnap) => {
+                cronogramaData = (docSnap.exists() && docSnap.data().data) ? docSnap.data().data : defaultCronogramaData;
+                if (!docSnap.exists()) await setDoc(cronogramaRef, { data: defaultCronogramaData });
+                renderAllTabs();
+            });
+            onSnapshot(publicationRef, (docSnap) => {
+                const status = docSnap.exists() ? docSnap.data() : { lastPublished: null };
+                checkAndAutoPublish(status);
+                const lastPublishedEl = document.getElementById('last-published-time');
+                if (status.lastPublished) {
+                    const date = new Date(status.lastPublished);
+                    lastPublishedEl.textContent = `Última publicação: ${date.toLocaleString('pt-BR')}`;
+                } else {
+                    lastPublishedEl.textContent = `Nenhuma publicação recente.`;
+                }
+            });
+        };
+        
+        const renderAllTabs = () => {
+             renderCronograma(activeDay);
+             updateHeaderStatus();
+             if (document.getElementById('resumoSabado').classList.contains('active')) renderSummary('sabado', cronogramaData['sabado']);
+             if (document.getElementById('resumoDomingo').classList.contains('active')) renderSummary('domingo', cronogramaData['domingo']);
+             if (document.getElementById('programacaoCompleta').classList.contains('active')) renderProgramacaoCompleta();
+        }
+
+        const showNotification = (title, message) => {
+            document.getElementById('notificationTitle').textContent = title;
+            document.getElementById('notificationMessage').textContent = message;
+            document.getElementById('notificationModal').style.display = 'flex';
+        };
+
+        const setupEventListeners = () => {
+            document.getElementById('copy-user-id').addEventListener('click', () => copyToClipboard(userId, 'ID copiado!'));
+            document.getElementById('confirmDelete').addEventListener('click', confirmDeleteActivity);
+            document.getElementById('cancelDelete').addEventListener('click', () => document.getElementById('deleteModal').style.display = 'none');
+            document.getElementById('notificationClose').addEventListener('click', () => document.getElementById('notificationModal').style.display = 'none');
+            document.getElementById('publish-button').addEventListener('click', window.publishAllSchedules);
+            document.getElementById('generate-link-button').addEventListener('click', window.generateCustomLink);
+        };
+
+        window.updateDataAndRender = async (day, index, field, value) => {
+            if (isSaving) return;
+            isSaving = true;
+            const newCronogramaData = JSON.parse(JSON.stringify(cronogramaData));
+            if (!newCronogramaData[day]?.[index]) {
+                isSaving = false; return;
+            }
+            newCronogramaData[day][index][field] = value;
+            
+            // Lógica de sincronização automática
+            if (field === 'fimReal') {
+                const nextItem = newCronogramaData[day][index + 1];
+                if (nextItem) {
+                    newCronogramaData[day][index + 1].inicioReal = value;
+                    showNotification("Sincronização", `Horário de Início Real da próxima atividade atualizado automaticamente.`);
+                }
+            }
+
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'cronograma', 'data'), { data: newCronogramaData });
+            } catch (e) { console.error("Erro ao salvar:", e); } finally { isSaving = false; }
+        };
+
+        window.setRealTime = (event, day, index, field) => {
+            const now = new Date();
+            const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+            updateDataAndRender(day, index, field, currentTime);
+        };
+        window.clearTime = (event, day, index, field) => updateDataAndRender(day, index, field, '');
+        window.addTeam = async () => {
+            const teamInput = document.getElementById('new-team-input');
+            const teamName = teamInput.value.trim();
+            if (teamName && !teams.includes(teamName)) {
+                await updateDoc(doc(db, 'artifacts', appId, 'users', userId, 'teams', 'data'), { teams: [...teams, teamName] });
+                teamInput.value = '';
+            }
+        };
+        window.removeTeam = async (teamName) => await updateDoc(doc(db, 'artifacts', appId, 'users', userId, 'teams', 'data'), { teams: teams.filter(t => t !== teamName) });
+        
+        window.scheduleAlert = async (event, day, index) => {
+            const alertSection = event.target.closest('.alert-section');
+            const team = alertSection.querySelector('.alert-team-select').value;
+            const message = alertSection.querySelector('.alert-message-input').value.trim();
+            const delay = parseInt(alertSection.querySelector('.alert-delay-input').value);
+            const statusEl = alertSection.querySelector('.alert-status');
+            statusEl.textContent = ''; 
+        
+            if (!team || !message || isNaN(delay) || delay < 0) {
+                statusEl.textContent = 'Preencha todos os campos do alerta.';
+                statusEl.className = 'alert-status text-xs mt-1 text-red-500';
+                return;
+            }
+            
+            const newCronogramaData = JSON.parse(JSON.stringify(cronogramaData));
+            const item = newCronogramaData[day][index];
+            
+            const fimPrevisto = formatTime(item.fimPrevisto);
+            if (!fimPrevisto) {
+                statusEl.textContent = 'Defina o Fim Previsto da atividade.';
+                statusEl.className = 'alert-status text-xs mt-1 text-red-500';
+                return;
+            }
+
+            const alertTime = new Date(fimPrevisto.getTime() - delay * 60000);
+            const alertTimeString = `${alertTime.getHours().toString().padStart(2, '0')}:${alertTime.getMinutes().toString().padStart(2, '0')}`;
+
+            item.alerta_equipe = team;
+            item.alerta_mensagem = message;
+            item.alerta_delay_minutos = delay;
+            item.alerta_agendado_horario = alertTimeString;
+            item.aviso_horario = null;
+            item.aviso_mensagem = null;
+            
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'cronograma', 'data'), { data: newCronogramaData });
+                statusEl.textContent = `Alerta agendado para ${alertTimeString}.`;
+                statusEl.className = 'alert-status text-xs mt-1 text-green-600';
+            } catch (e) {
+                statusEl.textContent = 'Erro ao agendar.';
+                statusEl.className = 'alert-status text-xs mt-1 text-red-500';
+            }
+        };
+
+        const checkAndFireAlerts = async () => {
+            const now = new Date();
+            const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+            let shouldUpdate = false;
+            const newCronogramaData = JSON.parse(JSON.stringify(cronogramaData));
+
+            ['sabado', 'domingo'].forEach(day => {
+                if (!newCronogramaData[day]) return;
+                newCronogramaData[day].forEach(item => {
+                    const scheduledTime = item.alerta_agendado_horario;
+                    if (scheduledTime && !item.aviso_horario && scheduledTime <= currentTime) {
+                        item.aviso_horario = currentTime;
+                        item.aviso_mensagem = item.alerta_mensagem;
+                        shouldUpdate = true;
+                    }
+                });
+            });
+
+            if (shouldUpdate && !isSaving) {
+                isSaving = true;
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'cronograma', 'data'), { data: newCronogramaData });
+                } catch (e) {
+                    console.error("Erro ao disparar alerta:", e);
+                } finally {
+                    isSaving = false;
+                }
+            }
+        };
+        
+        // Função para verificar e publicar automaticamente
+        const checkAndAutoPublish = async (status) => {
+            if (!userId || isSaving) return;
+            const now = new Date();
+            const twoHoursInMs = 2 * 60 * 60 * 1000;
+            const lastPublished = status.lastPublished ? new Date(status.lastPublished) : null;
+            
+            if (!lastPublished || (now.getTime() - lastPublished.getTime() > twoHoursInMs)) {
+                console.log("Intervalo de 2 horas atingido ou primeira publicação. Publicando...");
+                await publishAllSchedules();
+            }
+        };
+
+        window.formatAndSaveTime = (event, day, index, field) => {
+            let value = event.target.value.trim();
+            if (value === '') return updateDataAndRender(day, index, field, '');
+            
+            let formattedValue = value.replace(/\D/g, '');
+            if (formattedValue.length === 3) formattedValue = `0${formattedValue.slice(0, 1)}:${formattedValue.slice(1, 3)}`;
+            else if (formattedValue.length === 4) formattedValue = `${formattedValue.slice(0, 2)}:${formattedValue.slice(2, 4)}`;
+            
+            if (/^([01]\d|2[0-3]):([0-5]\d)$/.test(formattedValue)) {
+                updateDataAndRender(day, index, field, formattedValue);
+            } else {
+                event.target.value = cronogramaData[day][index][field] || '';
+            }
+        };
+        const formatTime = (timeString) => {
+            if (!timeString || !/^\d{2}:\d{2}$/.test(timeString)) return null;
+            const [hours, minutes] = timeString.split(':').map(Number);
+            const date = new Date();
+            date.setHours(hours, minutes, 0, 0);
+            return date;
+        };
+        const formatDiffMinutes = (minutes) => {
+            const absMinutes = Math.abs(Math.round(minutes));
+            const sign = minutes < 0 ? '-' : '+';
+            if (absMinutes < 60) return `${sign === '+' ? '+' : '-'}${absMinutes} min`;
+            const hours = Math.floor(absMinutes / 60);
+            const mins = absMinutes % 60;
+            return `${sign}${hours}h ${mins}min`;
+        };
+        
+        const calculateStatus = (item) => {
+             const now = new Date();
+             const inicioPrevisto = formatTime(item.inicioPrevisto);
+             const fimPrevisto = formatTime(item.fimPrevisto);
+             const inicioReal = formatTime(item.inicioReal);
+             const fimReal = formatTime(item.fimReal);
+
+             if (fimReal && fimPrevisto) {
+                 const diff = (fimReal - fimPrevisto) / 60000;
+                 return { text: "Concluído", detail: diff > 5 ? `Atraso (${formatDiffMinutes(diff)})` : (diff < -5 ? `Adiantado (${formatDiffMinutes(diff)})` : "No Prazo"), color: 'bg-green-600', textColor: diff > 5 ? 'text-red-500' : (diff < -5 ? 'text-blue-500' : 'text-gray-600'), cardClass: 'status-card-on-time' };
+             }
+             if (inicioReal) {
+                 const detail = (fimPrevisto && now > fimPrevisto) ? `Atrasado` : "Em progresso";
+                 return { text: "Em Andamento", detail, color: 'bg-blue-500', textColor: (fimPrevisto && now > fimPrevisto) ? 'text-red-500' : 'text-gray-600', cardClass: 'status-card-in-progress' };
+             }
+             if (inicioPrevisto && now > inicioPrevisto) {
+                 const diff = (now - inicioPrevisto) / 60000;
+                 return { text: "Atrasado", detail: `(${formatDiffMinutes(diff)})`, color: diff > 30 ? 'bg-red-500' : 'bg-yellow-500', textColor: diff > 30 ? 'text-white' : 'text-yellow-800', cardClass: diff > 30 ? 'status-card-very-late' : 'status-card-late' };
+             }
+             return { text: "Próximo", detail: `Inicia às ${item.inicioPrevisto || '--:--'}`, color: 'bg-gray-400', textColor: 'text-white', cardClass: 'status-card-upcoming' };
+        };
+        
+        const renderCronograma = (day) => {
+            const container = document.getElementById(`${day}-container`);
+            const data = cronogramaData[day];
+            if (!container || !data) {
+                if(container) container.innerHTML = `<p>A carregar dados...</p>`;
+                return;
+            }
+
+            let htmlContent = data.map((item, index) => {
+                const status = calculateStatus(item);
+                const teamsOptions = teams.map(team => `<option value="${team}" ${item.alerta_equipe === team ? 'selected' : ''}>${team}</option>`).join('');
+                const teamAlert = item.aviso_horario ? `<div class="alert-card flex items-start gap-4"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-yellow-500 shrink-0 mt-1"><path fill-rule="evenodd" d="M10 2a8 8 0 100 16 8 8 0 000-16zM5.25 9.75a.75.75 0 01.75-.75h.25a.75.75 0 010 1.5H6a.75.75 0 01-.75-.75zM10 5.25a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5a.75.75 0 01.75-.75z" clip-rule="evenodd" /></svg><div><p class="font-bold text-gray-800">Alerta para ${item.alerta_equipe}</p><p class="text-sm text-gray-600">${item.alerta_mensagem}</p></div></div>` : '';
+                return `
+                <div class="p-4 rounded-lg shadow-md border ${status.cardClass}">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+                        <input type="text" title="Nome da Atividade" class="text-lg font-semibold w-full border-b-2 border-transparent focus:border-indigo-500 focus:outline-none mb-2 sm:mb-0" value="${item.atividade}" placeholder="Nome da Atividade" onblur="window.updateDataAndRender('${day}', ${index}, 'atividade', this.value)">
+                        <div class="flex items-center gap-4">
+                            <div class="text-right">
+                                <span class="px-3 py-1 text-sm font-bold rounded-full text-white ${status.color}">${status.text}</span>
+                                <p class="text-xs font-semibold mt-1 ${status.textColor}">${status.detail}</p>
+                            </div>
+                        </div>
+                    </div>
+                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
+                        <div>
+                            <strong>Previsto:</strong> 
+                            <div class="flex gap-2 items-center mt-1">
+                                <input type="text" inputmode="numeric" placeholder="HH:mm" title="Início Previsto" class="planned-time-input" value="${item.inicioPrevisto}" onblur="window.formatAndSaveTime(event, '${day}', ${index}, 'inicioPrevisto')">
+                                <span>-</span>
+                                <input type="text" inputmode="numeric" placeholder="HH:mm" title="Fim Previsto" class="planned-time-input" value="${item.fimPrevisto}" onblur="window.formatAndSaveTime(event, '${day}', ${index}, 'fimPrevisto')">
+                            </div>
+                        </div>
+                         <div class="flex items-center gap-2">
+                            <strong>Real:</strong>
+                            <div class="flex items-center gap-1 w-full">
+                                <input type="text" inputmode="numeric" placeholder="--:--" title="Hora de Início Real" class="time-input w-full" value="${item.inicioReal}" onblur="window.formatAndSaveTime(event, '${day}', ${index}, 'inicioReal')">
+                                <div class="flex flex-col gap-1">
+                                    <button class="btn btn-primary btn-icon" onclick="window.setRealTime(event, '${day}', ${index}, 'inicioReal')">🕒</button>
+                                    <button class="btn btn-danger btn-icon" onclick="window.clearTime(event, '${day}', ${index}, 'inicioReal')">&times;</button>
+                                </div>
+                            </div>
+                            <span class="font-bold text-xl">-</span>
+                            <div class="flex items-center gap-1 w-full">
+                                <input type="text" inputmode="numeric" placeholder="--:--" title="Hora do Fim Real" class="time-input w-full" value="${item.fimReal}" onblur="window.formatAndSaveTime(event, '${day}', ${index}, 'fimReal')">
+                                <div class="flex flex-col gap-1">
+                                    <button class="btn btn-primary btn-icon" onclick="window.setRealTime(event, '${day}', ${index}, 'fimReal')">🕒</button>
+                                    <button class="btn btn-danger btn-icon" onclick="window.clearTime(event, '${day}', ${index}, 'fimReal')">&times;</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
+                       <div><strong>Equipe:</strong><input type="text" title="Nome da Equipe" class="w-full border-gray-300 rounded-md p-2 text-sm mt-1" placeholder="Nome da equipe..." value="${item.equipe || ''}" onblur="window.updateDataAndRender('${day}', ${index}, 'equipe', this.value)"></div>
+                       <div><strong>Observações:</strong><input type="text" title="Observações" class="w-full border-gray-300 rounded-md p-2 text-sm mt-1" placeholder="Observações..." value="${item.observacoes || ''}" onblur="window.updateDataAndRender('${day}', ${index}, 'observacoes', this.value)"></div>
+                    </div>
+                    <div class="alert-section mt-4 pt-4 border-t border-gray-200">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                             <div class="md:col-span-2 relative">
+                                <strong>Mensagem do Alerta:</strong>
+                                <input type="text" title="Mensagem do Alerta" class="alert-message-input w-full border-gray-300 rounded-md p-2 text-sm mt-1" placeholder="Escreva ou gere uma mensagem..." value="${item.alerta_mensagem || ''}">
+                                <button onclick="window.generateAlertMessage(event, '${day}', ${index})" class="absolute right-1 top-7 p-1 bg-purple-200 text-purple-700 rounded-full hover:bg-purple-300 transition-colors" title="Gerar mensagem com IA">✨</button>
+                            </div>
+                            <div><strong>Equipe do Alerta:</strong><select class="alert-team-select w-full border-gray-300 rounded-md p-2 text-sm mt-1"><option value="">Nenhuma</option>${teamsOptions}</select></div>
+                            <div><strong>Minutos Antes do Fim:</strong><input type="number" inputmode="numeric" placeholder="Ex: 15" class="alert-delay-input w-full border-gray-300 rounded-md p-2 text-sm mt-1 text-center" value="${item.alerta_delay_minutos !== null ? item.alerta_delay_minutos : ''}"></div>
+                        </div>
+                        <div class="flex items-center gap-2 mt-2">
+                             <button onclick="window.scheduleAlert(event, '${day}', ${index})" class="btn bg-yellow-500 text-white hover:bg-yellow-600 text-sm">Agendar Alerta</button>
+                             <span class="alert-status text-xs"></span>
+                        </div>
+                        ${teamAlert}
+                    </div>
+                </div>
+                `;
+            }).join('');
+            
+            htmlContent += `<div class="flex justify-center mt-6"><button onclick="window.addNewActivity('${day}', ${data.length})" class="btn btn-success">Adicionar Nova Atividade</button></div>`;
+            container.innerHTML = htmlContent;
+        };
+        
+        const updateClock = () => document.getElementById('relogio').textContent = new Date().toLocaleTimeString('pt-BR');
+        const updateHeaderStatus = () => {
+             const data = cronogramaData[activeDay];
+             if (!data || data.length === 0) {
+                document.getElementById('fim-previsto').textContent = '';
+                document.getElementById('status-geral').textContent = '';
+                return;
+             }
+             let totalDiffMinutes = 0;
+             data.forEach(item => {
+                 if (item.fimPrevisto && item.fimReal) {
+                     totalDiffMinutes += (formatTime(item.fimReal) - formatTime(item.fimPrevisto)) / 60000;
+                 }
+             });
+             const statusGeralEl = document.getElementById('status-geral');
+             const roundedTotalDiff = Math.round(totalDiffMinutes);
+             statusGeralEl.textContent = roundedTotalDiff > 5 ? `Atrasado (${formatDiffMinutes(roundedTotalDiff)})` : (roundedTotalDiff < -5 ? `Adiantado (${formatDiffMinutes(roundedTotalDiff)})` : 'No Prazo');
+             statusGeralEl.className = `text-lg font-semibold ${roundedTotalDiff > 5 ? 'text-red-400' : (roundedTotalDiff < -5 ? 'text-green-400' : 'text-gray-200')}`;
+
+             const lastItem = data[data.length - 1];
+             const fimPrevistoEl = document.getElementById('fim-previsto');
+             if (lastItem && lastItem.fimPrevisto) {
+                fimPrevistoEl.textContent = `Fim previsto: ${lastItem.fimPrevisto}`;
+             } else {
+                fimPrevistoEl.textContent = '';
+             }
+        };
+
+        window.openTab = (evt, tabName) => {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            evt.currentTarget.classList.add('active');
+            if (tabName === 'sabado' || tabName === 'domingo') activeDay = tabName;
+            renderAllTabs();
+        };
+        
+        const renderSummary = (day, data) => {
+            const container = document.getElementById(`resumo-${day}-container`);
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-500">Nenhum dado disponível para este dia.</p>`;
+                return;
+            }
+
+            let totalDeviationMinutes = 0;
+            let lastCompletedIndex = -1;
+            
+            // Calculate total deviation based on completed activities
+            data.forEach((item, index) => {
+                if (item.fimPrevisto && item.fimReal) {
+                    const deviation = (formatTime(item.fimReal) - formatTime(item.fimPrevisto)) / 60000;
+                    totalDeviationMinutes += deviation;
+                    lastCompletedIndex = index;
+                }
+            });
+
+            // Calculate the total time planned for the day
+            let plannedEnd = formatTime(data[data.length - 1].fimPrevisto);
+            let plannedStart = formatTime(data[0].inicioPrevisto);
+            
+            let totalPlannedMinutes = (plannedEnd - plannedStart) / 60000;
+            let currentDeviation = totalDeviationMinutes;
+            
+            // Adjust deviation for ongoing or upcoming activities
+            if (lastCompletedIndex < data.length - 1) {
+                const nextActivity = data[lastCompletedIndex + 1] || data[0];
+                const now = new Date();
+                const nextPlannedStart = formatTime(nextActivity.inicioPrevisto);
+                
+                if (nextPlannedStart && now > nextPlannedStart) {
+                    const currentActivityStartTime = formatTime(data[lastCompletedIndex].fimReal || data[lastCompletedIndex].fimPrevisto);
+                    if (currentActivityStartTime) {
+                         currentDeviation += (now - currentActivityStartTime) / 60000;
+                    }
+                }
+            }
+
+            const status = currentDeviation > 5 ? 'Atrasado' : (currentDeviation < -5 ? 'Adiantado' : 'No Prazo');
+            const statusColor = currentDeviation > 5 ? 'text-red-500' : (currentDeviation < -5 ? 'text-green-500' : 'text-gray-600');
+            const statusIcon = currentDeviation > 5 ? `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            ` : (currentDeviation < -5 ? `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            ` : `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M12 11V6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+            `);
+
+            // Calculate the estimated final time
+            let estimatedEnd = new Date(plannedEnd.getTime() + totalDeviationMinutes * 60000);
+            
+            let reportHtml = `
+            <div class="bg-gray-50 p-6 rounded-lg shadow-inner mb-6">
+                <div class="flex items-center gap-4 mb-4">
+                    ${statusIcon}
+                    <div>
+                        <h2 class="text-2xl font-bold">Status do Dia: <span class="${statusColor}">${status}</span></h2>
+                        <p class="text-sm font-semibold text-gray-600">Variação Acumulada: ${formatDiffMinutes(currentDeviation)}</p>
+                    </div>
+                </div>
+                <div class="p-4 bg-white rounded-lg shadow text-center">
+                    <p class="text-lg text-gray-600">Previsão de término das programações:</p>
+                    <p class="text-3xl font-bold text-indigo-700">${estimatedEnd.getHours().toString().padStart(2, '0')}:${estimatedEnd.getMinutes().toString().padStart(2, '0')}</p>
+                </div>
+            </div>
+            <h3 class="text-xl font-bold mb-4">Resumo das Atividades</h3>
+            <div class="space-y-4">
+            `;
+            
+            data.forEach(item => {
+                const status = calculateStatus(item);
+                reportHtml += `
+                <div class="p-4 rounded-lg shadow-md border ${status.cardClass}">
+                    <div class="flex justify-between items-center mb-2">
+                        <h4 class="font-semibold text-lg">${item.atividade}</h4>
+                        <span class="px-2 py-1 text-xs font-bold rounded-full text-white ${status.color}">${status.text}</span>
+                    </div>
+                    <p class="text-sm text-gray-600"><strong>Previsto:</strong> ${item.inicioPrevisto} - ${item.fimPrevisto}</p>
+                    <p class="text-sm text-gray-600"><strong>Realizado:</strong> ${item.inicioReal || '—'} - ${item.fimReal || '—'}</p>
+                    <p class="text-sm text-gray-600"><strong>Variação:</strong> ${status.detail !== 'Em progresso' && status.detail !== 'Próximo' && status.detail !== 'Concluído' ? status.detail : '—'}</p>
+                </div>
+                `;
+            });
+            reportHtml += `</div>`;
+            container.innerHTML = reportHtml;
+        };
+
+        const renderProgramacaoCompleta = () => {
+             const container = document.getElementById('programacao-completa-container');
+             let tableHtml = `<table class="min-w-full bg-white rounded-lg shadow-md"><thead class="bg-gray-200"><tr>
+                <th class="py-3 px-4 text-left">Dia</th><th class="py-3 px-4 text-left">Atividade</th><th class="py-3 px-4 text-left">Equipe</th>
+                <th class="py-3 px-4 text-left">Previsto</th><th class="py-3 px-4 text-left">Realizado</th>
+                <th class="py-3 px-4 text-left">Variação</th><th class="py-3 px-4 text-left">Ações</th></tr></thead><tbody class="text-gray-700">`;
+            
+            const days = ['sabado', 'domingo'];
+            days.forEach(day => {
+                if (cronogramaData[day]) {
+                    cronogramaData[day].forEach((item, index) => {
+                         const variationMinutes = item.fimPrevisto && item.fimReal ? (formatTime(item.fimReal) - formatTime(item.fimPrevisto)) / 60000 : 0;
+                         const variationFormatted = variationMinutes !== 0 ? formatDiffMinutes(variationMinutes) : '—';
+                         const variationColor = variationMinutes > 5 ? 'text-red-500' : (variationMinutes < -5 ? 'text-blue-500' : '');
+                         tableHtml += `<tr class="border-b border-gray-200 hover:bg-gray-50">
+                            <td class="py-3 px-4 font-semibold">${day.charAt(0).toUpperCase() + day.slice(1)}</td>
+                            <td class="py-3 px-4"><input type="text" class="w-full bg-transparent focus:outline-none" value="${item.atividade}" onblur="window.updateDataAndRender('${day}', ${index}, 'atividade', this.value)"></td>
+                            <td class="py-3 px-4"><input type="text" class="w-full bg-transparent focus:outline-none" value="${item.equipe || ''}" onblur="window.updateDataAndRender('${day}', ${index}, 'equipe', this.value)"></td>
+                            <td class="py-3 px-4">
+                                <input type="text" inputmode="numeric" placeholder="HH:mm" class="planned-time-input bg-transparent" value="${item.inicioPrevisto}" onblur="window.formatAndSaveTime(event, '${day}', ${index}, 'inicioPrevisto')">
+                                <span>-</span>
+                                <input type="text" inputmode="numeric" placeholder="HH:mm" class="planned-time-input bg-transparent" value="${item.fimPrevisto}" onblur="window.formatAndSaveTime(event, '${day}', ${index}, 'fimPrevisto')">
+                            </td>
+                            <td class="py-3 px-4">${item.inicioReal || '—'} - ${item.fimReal || '—'}</td>
+                            <td class="py-3 px-4 font-semibold ${variationColor}">${variationFormatted}</td>
+                            <td class="py-3 px-4 flex items-center gap-2">
+                                <button class="btn btn-success btn-icon" title="Adicionar atividade abaixo" onclick="window.addNewActivity('${day}', ${index + 1})"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg></button>
+                                <button class="btn btn-danger btn-icon" title="Remover atividade" onclick="window.showDeleteModal('${day}', ${index})"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg></button>
+                            </td>
+                         </tr>`;
+                    });
+                }
+            });
+             tableHtml += `</tbody></table>`;
+             container.innerHTML = tableHtml;
+        };
+        
+        window.exportAllToCsv = () => {
+             const day1Csv = window.createCsv(cronogramaData.sabado);
+             const day2Csv = window.createCsv(cronogramaData.domingo);
+             window.downloadCsv(day1Csv, 'cronograma_sabado.csv');
+             window.downloadCsv(day2Csv, 'cronograma_domingo.csv');
+             showNotification("Exportado!", "Dois ficheiros CSV foram gerados e descarregados para Sábado e Domingo.");
+        };
+
+        window.exportDayToCsv = (day) => {
+             const data = cronogramaData[day];
+             if (!data || data.length === 0) return showNotification("Aviso", `Não há dados para exportar para o dia ${day}.`);
+             const csv = window.createCsv(data);
+             window.downloadCsv(csv, `cronograma_${day}.csv`);
+        };
+        
+        window.createCsv = (data) => {
+             const headers = ["Atividade", "Equipe", "Início Previsto", "Fim Previsto", "Início Real", "Fim Real", "Observações"];
+             let csv = headers.join(',') + '\n';
+             data.forEach(item => {
+                 const row = [`"${(item.atividade || '').replace(/"/g, '""')}"`, `"${(item.equipe || '').replace(/"/g, '""')}"`, item.inicioPrevisto || '', item.fimPrevisto || '', item.inicioReal || '', item.fimReal || '', `"${(item.observacoes || '').replace(/"/g, '""')}"`];
+                 csv += row.join(',') + '\n';
+             });
+             return csv;
+        }
+
+        window.downloadCsv = (csv, filename) => {
+             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+             const link = document.createElement('a');
+             if (link.download !== undefined) {
+                 const url = URL.createObjectURL(blob);
+                 link.setAttribute('href', url);
+                 link.setAttribute('download', filename);
+                 link.style.visibility = 'hidden';
+                 document.body.appendChild(link);
+                 link.click();
+                 document.body.removeChild(link);
+             } else {
+                 showNotification("Erro", `Seu navegador não suporta download automático. Por favor, copie o conteúdo e salve como .csv.`);
+             }
+        }
+        
+        window.publishAllSchedules = async () => {
+            const publishBtn = document.getElementById('publish-button');
+            const statusEl = document.getElementById('publishing-status');
+            const originalText = publishBtn.innerHTML;
+
+            publishBtn.innerHTML = '<div class="spinner w-5 h-5"></div> Publicando...';
+            publishBtn.disabled = true;
+
+            const publicSchedules = {};
+            // Copia os dados do cronograma para a estrutura de publicação
+            publicSchedules['sabado'] = cronogramaData['sabado'];
+            publicSchedules['domingo'] = cronogramaData['domingo'];
+
+            try {
+                 for (const team of teams) {
+                    const publicDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', team);
+                    await setDoc(publicDocRef, {
+                        userId: userId,
+                        publishedAt: new Date().toISOString(),
+                        data: cronogramaData // Publica todo o cronograma para cada equipe
+                    });
+                }
+                statusEl.textContent = `Cronograma publicado para todas as equipes com sucesso!`;
+                await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'publication', 'status'), { lastPublished: new Date().toISOString() });
+            } catch (e) {
+                console.error("Erro ao publicar:", e);
+                statusEl.textContent = 'Erro ao publicar. Verifique sua conexão.';
+            } finally {
+                publishBtn.innerHTML = originalText;
+                publishBtn.disabled = false;
+            }
+        };
+
+
+        const renderPublicarCompartilhar = () => {
+            const teamsListEl = document.getElementById('teams-list');
+            const linkTeamSelect = document.getElementById('link-team-select');
+            const generatedLinksContainer = document.getElementById('generated-links-container');
+
+            // Renderiza a lista de equipes gerenciáveis
+            teamsListEl.innerHTML = teams.map(team => `
+                <div class="flex items-center bg-white p-2 rounded-full shadow-sm text-sm border border-gray-200">
+                    <span class="font-semibold px-2">${team}</span>
+                    <button onclick="window.removeTeam('${team}')" class="ml-2 text-red-500 hover:text-red-700 focus:outline-none">&times;</button>
+                </div>
+            `).join('');
+
+            // Popula o dropdown de equipes para geração de link
+            linkTeamSelect.innerHTML = teams.map(team => `<option value="${team}">${team}</option>`).join('');
+
+            // Limpa os links gerados ao renderizar
+            generatedLinksContainer.innerHTML = '';
+        };
+
+        window.generateCustomLink = () => {
+            const team = document.getElementById('link-team-select').value;
+            const view = document.getElementById('link-view-select').value;
+            const publicUrl = `${window.location.origin}${window.location.pathname}?team=${encodeURIComponent(team)}&view=${view}`;
+            
+            const linkText = {
+                'full': 'Programação Completa',
+                'summary': 'Resumo do Dia',
+                'team': 'Visualização da Equipe'
+            }[view];
+
+            const linkHtml = `
+                <div class="bg-white p-4 rounded-lg shadow-sm">
+                    <p class="font-semibold text-lg mb-2">Link para a equipe "${team}" - ${linkText}:</p>
+                    <div class="flex items-center gap-2">
+                        <input type="text" class="flex-1 p-2 rounded-md border border-gray-300 bg-gray-50 text-sm" value="${publicUrl}" readonly>
+                        <button onclick="window.copyToClipboard('${publicUrl}', 'Link copiado!', this)" class="btn btn-primary btn-icon">
+                            <span class="default-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                            </span>
+                            <span class="copied-icon hidden">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.getElementById('generated-links-container').innerHTML += linkHtml;
+        };
+
+        const renderPublicView = async () => {
+            const publicModal = document.getElementById('public-view-modal');
+            const publicTitle = document.getElementById('public-view-title');
+            const publicContent = document.getElementById('public-view-content');
+
+            if (!teamParam) return;
+
+            publicModal.style.display = 'flex';
+            publicTitle.textContent = `Cronograma da Equipe: ${teamParam}`;
+            publicContent.innerHTML = '<p class="text-center text-gray-500">A carregar cronograma...</p>';
+
+            const publicDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', teamParam);
+
+            onSnapshot(publicDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data().data;
+                    if (data) {
+                        switch(viewParam) {
+                            case 'summary':
+                                renderPublicSummaryView(publicContent, data);
+                                break;
+                            case 'team':
+                                renderPublicTeamView(publicContent, data, teamParam);
+                                break;
+                            case 'full':
+                            default:
+                                renderPublicFullView(publicContent, data);
+                                break;
+                        }
+                    } else {
+                        publicContent.innerHTML = '<p class="text-center text-red-500 mt-8">Nenhum cronograma publicado para esta equipe.</p>';
+                    }
+                } else {
+                    publicContent.innerHTML = '<p class="text-center text-red-500 mt-8">Cronograma não encontrado ou equipe inválida.</p>';
+                }
+            }, (error) => {
+                console.error("Erro ao carregar cronograma público:", error);
+                publicContent.innerHTML = '<p class="text-center text-red-500 mt-8">Erro ao carregar. Verifique o link.</p>';
+            });
+        };
+
+        const renderPublicFullView = (container, data) => {
+            let htmlContent = '';
+            ['sabado', 'domingo'].forEach(day => {
+                if (data[day] && data[day].length > 0) {
+                    htmlContent += `<h3 class="text-xl font-bold mt-6 mb-2">${day.charAt(0).toUpperCase() + day.slice(1)}</h3>`;
+                    data[day].forEach(item => {
+                        htmlContent += `
+                        <div class="bg-white p-4 rounded-lg shadow-md border-l-4 border-indigo-500">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="font-semibold text-lg">${item.atividade}</h4>
+                                <span class="text-xs font-medium px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full">${item.equipe || 'N/A'}</span>
+                            </div>
+                            <p class="text-sm text-gray-600"><strong>Previsto:</strong> ${item.inicioPrevisto} - ${item.fimPrevisto}</p>
+                            <p class="text-sm text-gray-600"><strong>Local:</strong> ${item.local || 'N/A'}</p>
+                            ${item.observacoes ? `<p class="text-sm text-gray-600"><strong>Observações:</strong> ${item.observacoes}</p>` : ''}
+                        </div>
+                        `;
+                    });
+                }
+            });
+            container.innerHTML = htmlContent || '<p class="text-center text-gray-500 mt-8">Nenhum cronograma publicado para esta equipe.</p>';
+        };
+
+        const renderPublicSummaryView = (container, data) => {
+            const today = new Date().getDay(); // 0 = domingo, 6 = sabado
+            const currentDay = today === 6 ? 'sabado' : 'domingo';
+            const dayData = data[currentDay] || [];
+            if (dayData.length > 0) {
+                renderSummary(currentDay, dayData); // Reutiliza a função de resumo
+                container.innerHTML = document.getElementById(`resumo-${currentDay}-container`).innerHTML;
+            } else {
+                container.innerHTML = `<p class="text-center text-gray-500 mt-8">Nenhum resumo publicado para o dia de hoje.</p>`;
+            }
+        };
+
+        const renderPublicTeamView = (container, data, team) => {
+            let htmlContent = '';
+            ['sabado', 'domingo'].forEach(day => {
+                const filteredData = (data[day] || []).filter(item => item.equipe === team || item.alerta_equipe === team);
+                if (filteredData.length > 0) {
+                    htmlContent += `<h3 class="text-xl font-bold mt-6 mb-2">${day.charAt(0).toUpperCase() + day.slice(1)}</h3>`;
+                    filteredData.forEach(item => {
+                        const isAlert = item.alerta_equipe === team && item.alerta_mensagem;
+                        htmlContent += `
+                        <div class="bg-white p-4 rounded-lg shadow-md border-l-4 ${isAlert ? 'border-yellow-500' : 'border-indigo-500'}">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="font-semibold text-lg">${item.atividade}</h4>
+                                ${isAlert ? `<span class="text-xs font-medium px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">Alerta</span>` : `<span class="text-xs font-medium px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full">${item.equipe || 'N/A'}</span>`}
+                            </div>
+                            <p class="text-sm text-gray-600"><strong>Previsto:</strong> ${item.inicioPrevisto} - ${item.fimPrevisto}</p>
+                            <p class="text-sm text-gray-600"><strong>Local:</strong> ${item.local || 'N/A'}</p>
+                            ${item.observacoes ? `<p class="text-sm text-gray-600"><strong>Observações:</strong> ${item.observacoes}</p>` : ''}
+                            ${isAlert ? `<div class="mt-2 pt-2 border-t border-gray-200"><p class="text-sm text-gray-800 font-semibold">Alerta para você:</p><p class="text-sm text-gray-600">${item.alerta_mensagem}</p></div>` : ''}
+                        </div>
+                        `;
+                    });
+                }
+            });
+            container.innerHTML = htmlContent || `<p class="text-center text-gray-500 mt-8">Nenhuma atividade ou alerta atribuído à sua equipe.</p>`;
+        };
+
+        window.closePublicView = () => document.getElementById('public-view-modal').style.display = 'none';
+
+        window.copyToClipboard = (text, messageText, button) => {
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showCopyMessage(messageText);
+                    toggleCopyButtonVisual(button, true);
+                }).catch(err => {
+                    console.error('Falha ao copiar usando navigator.clipboard:', err);
+                    fallbackCopy(text, messageText, button);
+                });
+            } else {
+                fallbackCopy(text, messageText, button);
+            }
+        };
+
+        const fallbackCopy = (text, messageText, button) => {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed'; 
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showCopyMessage(messageText);
+                    toggleCopyButtonVisual(button, true);
+                } else {
+                    console.error('Falha ao copiar usando document.execCommand');
+                }
+            } catch (err) {
+                console.error('Erro ao copiar usando document.execCommand:', err);
+            }
+            document.body.removeChild(textarea);
+        };
+
+        const showCopyMessage = (messageText) => {
+            const copyMessageEl = document.getElementById('copy-message');
+            copyMessageEl.textContent = messageText;
+            copyMessageEl.classList.add('opacity-100');
+            setTimeout(() => copyMessageEl.classList.remove('opacity-100'), 2000);
+        };
+        
+        const toggleCopyButtonVisual = (button, isCopied) => {
+            if (!button) return;
+            const defaultIcon = button.querySelector('.default-icon');
+            const copiedIcon = button.querySelector('.copied-icon');
+            if (isCopied) {
+                defaultIcon.classList.add('hidden');
+                copiedIcon.classList.remove('hidden');
+                setTimeout(() => {
+                    defaultIcon.classList.remove('hidden');
+                    copiedIcon.classList.add('hidden');
+                }, 2000);
+            } else {
+                defaultIcon.classList.remove('hidden');
+                copiedIcon.classList.add('hidden');
+            }
+        };
+        
+        window.addNewActivity = async (day, index) => {
+            const newActivity = {
+                atividade: "Nova Atividade",
+                local: "",
+                inicioPrevisto: "",
+                fimPrevisto: "",
+                inicioReal: "",
+                fimReal: "",
+                observacoes: "",
+                equipe: "",
+                alerta_mensagem: "",
+                alerta_equipe: "",
+                alerta_delay_minutos: null
+            };
+            const newCronogramaData = JSON.parse(JSON.stringify(cronogramaData));
+            newCronogramaData[day].splice(index, 0, newActivity);
+            await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'cronograma', 'data'), { data: newCronogramaData });
+        };
+
+        window.showDeleteModal = (day, index) => {
+            itemToDelete = { day, index };
+            document.getElementById('deleteModal').style.display = 'flex';
+        };
+
+        const confirmDeleteActivity = async () => {
+            const { day, index } = itemToDelete;
+            document.getElementById('deleteModal').style.display = 'none';
+            if (day && index !== null) {
+                const newCronogramaData = JSON.parse(JSON.stringify(cronogramaData));
+                newCronogramaData[day].splice(index, 1);
+                await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'cronograma', 'data'), { data: newCronogramaData });
+                itemToDelete = { day: null, index: null };
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initFirebase();
+            setInterval(updateClock, 1000);
+        });
+    </script>
+</body>
+</html>
