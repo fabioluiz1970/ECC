@@ -92,6 +92,9 @@
             overflow-y: auto;
             border-radius: 0.5rem;
         }
+        .text-nowrap {
+            white-space: nowrap;
+        }
 
     </style>
 </head>
@@ -99,7 +102,7 @@
     <!-- Header -->
     <div>
         <header class="flex flex-col sm:flex-row justify-between items-center mb-6 p-4 bg-gradient-to-r from-gray-800 to-gray-700 text-white rounded-xl shadow-lg">
-            <h1 class="text-2xl sm:text-3xl font-bold mb-2 sm:mb-0">Dashboard do Evento</h1>
+            <h1 class="text-2xl sm:text-3xl font-bold mb-2 sm:mb-0">ECC 45</h1>
             <div class="flex flex-col items-end space-y-2 relative">
                 <div id="relogio" class="text-xl sm:text-2xl font-bold"></div>
                 <div id="status-container" class="text-right">
@@ -139,7 +142,7 @@
         <div id="resumo-sabado-container"></div>
     </div>
     <div id="resumoDomingo" class="tab-content">
-         <div class="flex flex-wrap justify-between items-center gap-4 mb-4">
+           <div class="flex flex-wrap justify-between items-center gap-4 mb-4">
             <h1 class="text-2xl font-bold">Resumo de Domingo</h1>
             <div class="flex gap-2">
                  <button onclick="window.exportDayToCsv('domingo')" class="btn btn-success">Exportar CSV</button>
@@ -157,6 +160,10 @@
         <div class="table-container">
             <div id="programacao-completa-container"></div>
         </div>
+        <div class="flex justify-center mt-6 gap-4">
+            <button onclick="window.addNewActivity('sabado', cronogramaData['sabado'].length)" class="btn btn-success">Adicionar Nova Atividade</button>
+            <button onclick="window.showDeleteModal('sabado', cronogramaData['sabado'].length - 1)" class="btn btn-danger">Remover Última</button>
+        </div>
     </div>
     <div id="publicarCompartilhar" class="tab-content">
         <h2 class="text-2xl font-bold mb-4">Gerenciar Equipes e Compartilhar</h2>
@@ -172,6 +179,7 @@
         <!-- Seção de Publicação e Atualização -->
         <div class="p-4 rounded-lg bg-gray-100 shadow-inner mb-6">
             <h3 class="font-bold text-lg mb-2">Publicar Cronograma</h3>
+            <p class="text-sm text-gray-500 mb-2">O cronograma publicado pode ser visualizado por qualquer pessoa com o link, mas não pode ser editado. Publicações ocorrem automaticamente a cada 2 horas.</p>
             <button id="publish-button" class="w-full mt-2 p-3 btn btn-success text-lg">Publicar Cronograma Atual</button>
             <div id="publishing-status" class="mt-2 text-center text-sm font-semibold text-gray-600"></div>
             <p id="last-published-time" class="mt-4 text-sm text-gray-500 text-center"></p>
@@ -189,8 +197,8 @@
                     <label for="link-view-select" class="text-sm font-medium text-gray-700">Visualização:</label>
                     <select id="link-view-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring focus:ring-indigo-200 focus:border-indigo-500">
                         <option value="full">Programação Completa</option>
-                        <option value="summary">Resumo do Dia</option>
-                        <option value="team">Visualização da Equipe</option>
+                        <option value="sabado">Sábado</option>
+                        <option value="domingo">Domingo</option>
                     </select>
                 </div>
                 <div class="flex flex-col justify-end">
@@ -212,7 +220,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc, updateDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
+        
         // Global variables provided by the Canvas environment
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
@@ -231,14 +239,14 @@
         setLogLevel('debug');
 
         const defaultCronogramaData = {
-             "sabado": [{"atividade":"RECEPÇÃO IPVM","local":"IPVM","inicioPrevisto":"06:00","fimPrevisto":"07:00","inicioReal":"","fimReal":"","observacoes":"","equipe":"","alerta_mensagem":"","alerta_equipe":"","alerta_delay_minutos":null},{"atividade":"VIAGEM","local":"ÔNIBUS","inicioPrevisto":"07:00","fimPrevisto":"09:20","inicioReal":"","fimReal":"","observacoes":"","equipe":"","alerta_mensagem":"","alerta_equipe":"","alerta_delay_minutos":null},{"atividade":"RECEPÇÃO RECANTO","local":"SALÃO PALESTRA","inicioPrevisto":"09:20","fimPrevisto":"09:40","inicioReal":"","fimReal":"","observacoes":"","equipe":"","alerta_mensagem":"","alerta_equipe":"","alerta_delay_minutos":null}],
-             "domingo": [{"atividade":"PREPARAR CAFÉ HAVAIANO","local":"REFEITÓRIO","inicioPrevisto":"06:00","fimPrevisto":"07:00","inicioReal":"","fimReal":"","observacoes":"","equipe":"","alerta_mensagem":"","alerta_equipe":"","alerta_delay_minutos":null},{"atividade":"DESPERTAR ENCONTRISTAS","local":"ALOJAMENTO","inicioPrevisto":"07:00","fimPrevisto":"07:25","inicioReal":"","fimReal":"","observacoes":"","equipe":"","alerta_mensagem":"","alerta_equipe":"","alerta_delay_minutos":null}]
+             "sabado": [{"atividade":"RECEPÇÃO IPVM","local":"IPVM","inicioPrevisto":"06:00","fimPrevisto":"07:00","inicioReal":"","fimReal":"","observacoes":"","equipe":"","alerta_mensagem":"","alerta_equipe":"","alerta_delay_minutos":null}],
+             "domingo": [{"atividade":"PREPARAR CAFÉ HAVAIANO","local":"REFEITÓRIO","inicioPrevisto":"06:00","fimPrevisto":"07:00","inicioReal":"","fimReal":"","observacoes":"","equipe":"","alerta_mensagem":"","alerta_equipe":"","alerta_delay_minutos":null}]
         };
         const defaultTeams = ["Equipe Cozinha", "Equipe Dinâmica", "Equipe Palestra"];
         
         // --- Funções para a API do Gemini ---
         const callGeminiAPI = async (prompt, retries = 3, delay = 1000) => {
-            const apiKey = ""; 
+            const apiKey = "";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
@@ -292,6 +300,7 @@
             const app = initializeApp(firebaseConfig);
             db = getFirestore(app);
             auth = getAuth(app);
+
             if (teamParam) {
                 // Modo de visualização pública
                 await signInAnonymously(auth);
@@ -326,8 +335,7 @@
             onSnapshot(teamsRef, async (docSnap) => {
                 teams = (docSnap.exists() && docSnap.data().teams) ? docSnap.data().teams : defaultTeams;
                 if (!docSnap.exists()) await setDoc(teamsRef, { teams: defaultTeams });
-                renderCronograma(activeDay);
-                if (document.getElementById('publicarCompartilhar').classList.contains('active')) renderPublicarCompartilhar();
+                renderAllTabs();
             });
             onSnapshot(cronogramaRef, async (docSnap) => {
                 cronogramaData = (docSnap.exists() && docSnap.data().data) ? docSnap.data().data : defaultCronogramaData;
@@ -353,6 +361,7 @@
              if (document.getElementById('resumoSabado').classList.contains('active')) renderSummary('sabado', cronogramaData['sabado']);
              if (document.getElementById('resumoDomingo').classList.contains('active')) renderSummary('domingo', cronogramaData['domingo']);
              if (document.getElementById('programacaoCompleta').classList.contains('active')) renderProgramacaoCompleta();
+             if (document.getElementById('publicarCompartilhar').classList.contains('active')) renderPublicarCompartilhar();
         }
 
         const showNotification = (title, message) => {
@@ -453,6 +462,24 @@
             }
         };
 
+        window.clearAlert = async (day, index) => {
+            const newCronogramaData = JSON.parse(JSON.stringify(cronogramaData));
+            const item = newCronogramaData[day][index];
+            item.alerta_equipe = "";
+            item.alerta_mensagem = "";
+            item.alerta_delay_minutos = null;
+            item.alerta_agendado_horario = null;
+            item.aviso_horario = null;
+            item.aviso_mensagem = null;
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'cronograma', 'data'), { data: newCronogramaData });
+                showNotification("Alerta Limpo", "O alerta para esta atividade foi removido.");
+            } catch (e) {
+                console.error("Erro ao limpar alerta:", e);
+                showNotification("Erro", "Não foi possível remover o alerta.");
+            }
+        };
+
         const checkAndFireAlerts = async () => {
             const now = new Date();
             const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
@@ -483,7 +510,7 @@
             }
         };
         
-        // Função para verificar e publicar automaticamente
+        // Função para verificar e publicar automaticamente a cada 2 horas
         const checkAndAutoPublish = async (status) => {
             if (!userId || isSaving) return;
             const now = new Date();
@@ -559,7 +586,7 @@
             let htmlContent = data.map((item, index) => {
                 const status = calculateStatus(item);
                 const teamsOptions = teams.map(team => `<option value="${team}" ${item.alerta_equipe === team ? 'selected' : ''}>${team}</option>`).join('');
-                const teamAlert = item.aviso_horario ? `<div class="alert-card flex items-start gap-4"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-yellow-500 shrink-0 mt-1"><path fill-rule="evenodd" d="M10 2a8 8 0 100 16 8 8 0 000-16zM5.25 9.75a.75.75 0 01.75-.75h.25a.75.75 0 010 1.5H6a.75.75 0 01-.75-.75zM10 5.25a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5a.75.75 0 01.75-.75z" clip-rule="evenodd" /></svg><div><p class="font-bold text-gray-800">Alerta para ${item.alerta_equipe}</p><p class="text-sm text-gray-600">${item.alerta_mensagem}</p></div></div>` : '';
+                const teamAlert = item.aviso_horario ? `<div class="alert-card flex items-start gap-4"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5 text-yellow-500 shrink-0 mt-1"><path fill-rule="evenodd" d="M10 2a8 8 0 100 16 8 8 0 000-16zM5.25 9.75a.75.75 0 01.75-.75h.25a.75.75 0 010 1.5H6a.75.75 0 01-.75-.75zM10 5.25a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5a.75.75 0 01.75-.75z" clip-rule="evenodd" /></svg><div><p class="font-bold text-gray-800">Alerta para ${item.alerta_equipe}</p><p class="text-sm text-gray-600">${item.aviso_mensagem}</p></div></div>` : '';
                 return `
                 <div class="p-4 rounded-lg shadow-md border ${status.cardClass}">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
@@ -572,58 +599,64 @@
                         </div>
                     </div>
                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
-                        <div>
-                            <strong>Previsto:</strong> 
-                            <div class="flex gap-2 items-center mt-1">
-                                <input type="text" inputmode="numeric" placeholder="HH:mm" title="Início Previsto" class="planned-time-input" value="${item.inicioPrevisto}" onblur="window.formatAndSaveTime(event, '${day}', ${index}, 'inicioPrevisto')">
-                                <span>-</span>
-                                <input type="text" inputmode="numeric" placeholder="HH:mm" title="Fim Previsto" class="planned-time-input" value="${item.fimPrevisto}" onblur="window.formatAndSaveTime(event, '${day}', ${index}, 'fimPrevisto')">
-                            </div>
-                        </div>
+                         <div>
+                            <strong>Local:</strong>
+                            <input type="text" title="Local da Atividade" class="w-full border-gray-300 rounded-md p-2 text-sm mt-1" placeholder="Local..." value="${item.local || ''}" onblur="window.updateDataAndRender('${day}', ${index}, 'local', this.value)">
+                         </div>
+                         <div>
+                             <strong>Previsto:</strong> 
+                             <div class="flex gap-2 items-center mt-1">
+                                 <input type="text" inputmode="numeric" placeholder="HH:mm" title="Início Previsto" class="planned-time-input" value="${item.inicioPrevisto}" onblur="window.formatAndSaveTime(event, '${day}', ${index}, 'inicioPrevisto')">
+                                 <span>-</span>
+                                 <input type="text" inputmode="numeric" placeholder="HH:mm" title="Fim Previsto" class="planned-time-input" value="${item.fimPrevisto}" onblur="window.formatAndSaveTime(event, '${day}', ${index}, 'fimPrevisto')">
+                             </div>
+                         </div>
+                     </div>
+                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
                          <div class="flex items-center gap-2">
-                            <strong>Real:</strong>
-                            <div class="flex items-center gap-1 w-full">
-                                <input type="text" inputmode="numeric" placeholder="--:--" title="Hora de Início Real" class="time-input w-full" value="${item.inicioReal}" onblur="window.formatAndSaveTime(event, '${day}', ${index}, 'inicioReal')">
-                                <div class="flex flex-col gap-1">
-                                    <button class="btn btn-primary btn-icon" onclick="window.setRealTime(event, '${day}', ${index}, 'inicioReal')">🕒</button>
-                                    <button class="btn btn-danger btn-icon" onclick="window.clearTime(event, '${day}', ${index}, 'inicioReal')">&times;</button>
-                                </div>
-                            </div>
-                            <span class="font-bold text-xl">-</span>
-                            <div class="flex items-center gap-1 w-full">
-                                <input type="text" inputmode="numeric" placeholder="--:--" title="Hora do Fim Real" class="time-input w-full" value="${item.fimReal}" onblur="window.formatAndSaveTime(event, '${day}', ${index}, 'fimReal')">
-                                <div class="flex flex-col gap-1">
-                                    <button class="btn btn-primary btn-icon" onclick="window.setRealTime(event, '${day}', ${index}, 'fimReal')">🕒</button>
-                                    <button class="btn btn-danger btn-icon" onclick="window.clearTime(event, '${day}', ${index}, 'fimReal')">&times;</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
-                       <div><strong>Equipe:</strong><input type="text" title="Nome da Equipe" class="w-full border-gray-300 rounded-md p-2 text-sm mt-1" placeholder="Nome da equipe..." value="${item.equipe || ''}" onblur="window.updateDataAndRender('${day}', ${index}, 'equipe', this.value)"></div>
-                       <div><strong>Observações:</strong><input type="text" title="Observações" class="w-full border-gray-300 rounded-md p-2 text-sm mt-1" placeholder="Observações..." value="${item.observacoes || ''}" onblur="window.updateDataAndRender('${day}', ${index}, 'observacoes', this.value)"></div>
-                    </div>
-                    <div class="alert-section mt-4 pt-4 border-t border-gray-200">
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                             <div class="md:col-span-2 relative">
-                                <strong>Mensagem do Alerta:</strong>
-                                <input type="text" title="Mensagem do Alerta" class="alert-message-input w-full border-gray-300 rounded-md p-2 text-sm mt-1" placeholder="Escreva ou gere uma mensagem..." value="${item.alerta_mensagem || ''}">
-                                <button onclick="window.generateAlertMessage(event, '${day}', ${index})" class="absolute right-1 top-7 p-1 bg-purple-200 text-purple-700 rounded-full hover:bg-purple-300 transition-colors" title="Gerar mensagem com IA">✨</button>
-                            </div>
-                            <div><strong>Equipe do Alerta:</strong><select class="alert-team-select w-full border-gray-300 rounded-md p-2 text-sm mt-1"><option value="">Nenhuma</option>${teamsOptions}</select></div>
-                            <div><strong>Minutos Antes do Fim:</strong><input type="number" inputmode="numeric" placeholder="Ex: 15" class="alert-delay-input w-full border-gray-300 rounded-md p-2 text-sm mt-1 text-center" value="${item.alerta_delay_minutos !== null ? item.alerta_delay_minutos : ''}"></div>
-                        </div>
-                        <div class="flex items-center gap-2 mt-2">
-                             <button onclick="window.scheduleAlert(event, '${day}', ${index})" class="btn bg-yellow-500 text-white hover:bg-yellow-600 text-sm">Agendar Alerta</button>
-                             <span class="alert-status text-xs"></span>
-                        </div>
-                        ${teamAlert}
-                    </div>
+                             <strong>Real:</strong>
+                             <div class="flex items-center gap-1 w-full">
+                                 <input type="text" inputmode="numeric" placeholder="--:--" title="Hora de Início Real" class="time-input w-full" value="${item.inicioReal}" onblur="window.formatAndSaveTime(event, '${day}', ${index}, 'inicioReal')">
+                                 <div class="flex flex-col gap-1">
+                                     <button class="btn btn-primary btn-icon" onclick="window.setRealTime(event, '${day}', ${index}, 'inicioReal')">🕒</button>
+                                     <button class="btn btn-danger btn-icon" onclick="window.clearTime(event, '${day}', ${index}, 'inicioReal')">&times;</button>
+                                 </div>
+                             </div>
+                             <span class="font-bold text-xl">-</span>
+                             <div class="flex items-center gap-1 w-full">
+                                 <input type="text" inputmode="numeric" placeholder="--:--" title="Hora do Fim Real" class="time-input w-full" value="${item.fimReal}" onblur="window.formatAndSaveTime(event, '${day}', ${index}, 'fimReal')">
+                                 <div class="flex flex-col gap-1">
+                                     <button class="btn btn-primary btn-icon" onclick="window.setRealTime(event, '${day}', ${index}, 'fimReal')">🕒</button>
+                                     <button class="btn btn-danger btn-icon" onclick="window.clearTime(event, '${day}', ${index}, 'fimReal')">&times;</button>
+                                 </div>
+                             </div>
+                         </div>
+                         <div><strong>Equipe:</strong><input type="text" title="Nome da Equipe" class="w-full border-gray-300 rounded-md p-2 text-sm mt-1" placeholder="Nome da equipe..." value="${item.equipe || ''}" onblur="window.updateDataAndRender('${day}', ${index}, 'equipe', this.value)"></div>
+                     </div>
+                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
+                        <div><strong>Observações:</strong><input type="text" title="Observações" class="w-full border-gray-300 rounded-md p-2 text-sm mt-1" placeholder="Observações..." value="${item.observacoes || ''}" onblur="window.updateDataAndRender('${day}', ${index}, 'observacoes', this.value)"></div>
+                     </div>
+                     <div class="alert-section mt-4 pt-4 border-t border-gray-200">
+                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                              <div class="md:col-span-2 relative">
+                                  <strong>Mensagem do Alerta:</strong>
+                                  <input type="text" title="Mensagem do Alerta" class="alert-message-input w-full border-gray-300 rounded-md p-2 text-sm mt-1" placeholder="Escreva ou gere uma mensagem..." value="${item.alerta_mensagem || ''}">
+                                  <button onclick="window.generateAlertMessage(event, '${day}', ${index})" class="absolute right-1 top-7 p-1 bg-purple-200 text-purple-700 rounded-full hover:bg-purple-300 transition-colors" title="Gerar mensagem com IA">✨</button>
+                              </div>
+                              <div><strong>Equipe do Alerta:</strong><select class="alert-team-select w-full border-gray-300 rounded-md p-2 text-sm mt-1"><option value="">Nenhuma</option>${teamsOptions}</select></div>
+                              <div><strong>Minutos Antes do Fim:</strong><input type="number" inputmode="numeric" placeholder="Ex: 15" class="alert-delay-input w-full border-gray-300 rounded-md p-2 text-sm mt-1 text-center" value="${item.alerta_delay_minutos !== null ? item.alerta_delay_minutos : ''}"></div>
+                         </div>
+                         <div class="flex items-center gap-2 mt-2">
+                              <button onclick="window.scheduleAlert(event, '${day}', ${index})" class="btn bg-yellow-500 text-white hover:bg-yellow-600 text-sm">Agendar Alerta</button>
+                              <button onclick="window.clearAlert('${day}', ${index})" class="btn btn-danger text-sm">Limpar Alerta</button>
+                              <span class="alert-status text-xs"></span>
+                         </div>
+                         ${teamAlert}
+                     </div>
                 </div>
                 `;
             }).join('');
             
-            htmlContent += `<div class="flex justify-center mt-6"><button onclick="window.addNewActivity('${day}', ${data.length})" class="btn btn-success">Adicionar Nova Atividade</button></div>`;
             container.innerHTML = htmlContent;
         };
         
@@ -631,9 +664,9 @@
         const updateHeaderStatus = () => {
              const data = cronogramaData[activeDay];
              if (!data || data.length === 0) {
-                document.getElementById('fim-previsto').textContent = '';
-                document.getElementById('status-geral').textContent = '';
-                return;
+                 document.getElementById('fim-previsto').textContent = '';
+                 document.getElementById('status-geral').textContent = '';
+                 return;
              }
              let totalDiffMinutes = 0;
              data.forEach(item => {
@@ -649,9 +682,9 @@
              const lastItem = data[data.length - 1];
              const fimPrevistoEl = document.getElementById('fim-previsto');
              if (lastItem && lastItem.fimPrevisto) {
-                fimPrevistoEl.textContent = `Fim previsto: ${lastItem.fimPrevisto}`;
+                 fimPrevistoEl.textContent = `Fim previsto: ${lastItem.fimPrevisto}`;
              } else {
-                fimPrevistoEl.textContent = '';
+                 fimPrevistoEl.textContent = '';
              }
         };
 
@@ -664,8 +697,8 @@
             renderAllTabs();
         };
         
-        const renderSummary = (day, data) => {
-            const container = document.getElementById(`resumo-${day}-container`);
+        const renderSummary = (day, data, containerEl) => {
+            const container = containerEl || document.getElementById(`resumo-${day}-container`);
             if (!data || data.length === 0) {
                 container.innerHTML = `<p class="text-center text-gray-500">Nenhum dado disponível para este dia.</p>`;
                 return;
@@ -699,7 +732,7 @@
                 if (nextPlannedStart && now > nextPlannedStart) {
                     const currentActivityStartTime = formatTime(data[lastCompletedIndex].fimReal || data[lastCompletedIndex].fimPrevisto);
                     if (currentActivityStartTime) {
-                         currentDeviation += (now - currentActivityStartTime) / 60000;
+                          currentDeviation += (now - currentActivityStartTime) / 60000;
                     }
                 }
             }
@@ -707,11 +740,11 @@
             const status = currentDeviation > 5 ? 'Atrasado' : (currentDeviation < -5 ? 'Adiantado' : 'No Prazo');
             const statusColor = currentDeviation > 5 ? 'text-red-500' : (currentDeviation < -5 ? 'text-green-500' : 'text-gray-600');
             const statusIcon = currentDeviation > 5 ? `
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
             ` : (currentDeviation < -5 ? `
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             ` : `
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M12 11V6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M12 11V6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
             `);
 
             // Calculate the estimated final time
@@ -755,44 +788,63 @@
 
         const renderProgramacaoCompleta = () => {
              const container = document.getElementById('programacao-completa-container');
-             let tableHtml = `<table class="min-w-full bg-white rounded-lg shadow-md"><thead class="bg-gray-200"><tr>
-                <th class="py-3 px-4 text-left">Dia</th><th class="py-3 px-4 text-left">Atividade</th><th class="py-3 px-4 text-left">Equipe</th>
-                <th class="py-3 px-4 text-left">Previsto</th><th class="py-3 px-4 text-left">Realizado</th>
-                <th class="py-3 px-4 text-left">Variação</th><th class="py-3 px-4 text-left">Ações</th></tr></thead><tbody class="text-gray-700">`;
+             let tableHtml = `<table class="w-full bg-white rounded-lg shadow-md"><thead class="bg-gray-200"><tr>
+                 <th class="py-3 px-4 text-left">Dia</th><th class="py-3 px-4 text-left">Atividade</th><th class="py-3 px-4 text-left">Equipe</th>
+                 <th class="py-3 px-4 text-left">Local</th><th class="py-3 px-4 text-left text-nowrap">Previsto (HH:mm)</th><th class="py-3 px-4 text-left">Realizado (HH:mm)</th>
+                 <th class="py-3 px-4 text-left">Observação</th><th class="py-3 px-4 text-left">Variação Acumulada</th><th class="py-3 px-4 text-left text-nowrap">Ações</th></tr></thead><tbody class="text-gray-700">`;
             
-            const days = ['sabado', 'domingo'];
-            days.forEach(day => {
-                if (cronogramaData[day]) {
-                    cronogramaData[day].forEach((item, index) => {
-                         const variationMinutes = item.fimPrevisto && item.fimReal ? (formatTime(item.fimReal) - formatTime(item.fimPrevisto)) / 60000 : 0;
-                         const variationFormatted = variationMinutes !== 0 ? formatDiffMinutes(variationMinutes) : '—';
-                         const variationColor = variationMinutes > 5 ? 'text-red-500' : (variationMinutes < -5 ? 'text-blue-500' : '');
-                         tableHtml += `<tr class="border-b border-gray-200 hover:bg-gray-50">
-                            <td class="py-3 px-4 font-semibold">${day.charAt(0).toUpperCase() + day.slice(1)}</td>
-                            <td class="py-3 px-4"><input type="text" class="w-full bg-transparent focus:outline-none" value="${item.atividade}" onblur="window.updateDataAndRender('${day}', ${index}, 'atividade', this.value)"></td>
-                            <td class="py-3 px-4"><input type="text" class="w-full bg-transparent focus:outline-none" value="${item.equipe || ''}" onblur="window.updateDataAndRender('${day}', ${index}, 'equipe', this.value)"></td>
-                            <td class="py-3 px-4">
-                                <input type="text" inputmode="numeric" placeholder="HH:mm" class="planned-time-input bg-transparent" value="${item.inicioPrevisto}" onblur="window.formatAndSaveTime(event, '${day}', ${index}, 'inicioPrevisto')">
-                                <span>-</span>
-                                <input type="text" inputmode="numeric" placeholder="HH:mm" class="planned-time-input bg-transparent" value="${item.fimPrevisto}" onblur="window.formatAndSaveTime(event, '${day}', ${index}, 'fimPrevisto')">
-                            </td>
-                            <td class="py-3 px-4">${item.inicioReal || '—'} - ${item.fimReal || '—'}</td>
-                            <td class="py-3 px-4 font-semibold ${variationColor}">${variationFormatted}</td>
-                            <td class="py-3 px-4 flex items-center gap-2">
-                                <button class="btn btn-success btn-icon" title="Adicionar atividade abaixo" onclick="window.addNewActivity('${day}', ${index + 1})"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg></button>
-                                <button class="btn btn-danger btn-icon" title="Remover atividade" onclick="window.showDeleteModal('${day}', ${index})"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg></button>
-                            </td>
-                         </tr>`;
-                    });
-                }
+            let cumulativeDeviation = 0;
+            const allActivities = [
+                ...cronogramaData.sabado.map((item, index) => ({...item, day: 'sabado', dayIndex: index})),
+                ...cronogramaData.domingo.map((item, index) => ({...item, day: 'domingo', dayIndex: index}))
+            ];
+            
+            allActivities.forEach((item) => {
+                 const variationMinutes = item.fimPrevisto && item.fimReal ? (formatTime(item.fimReal) - formatTime(item.fimPrevisto)) / 60000 : 0;
+                 if (item.fimPrevisto && item.fimReal) {
+                     cumulativeDeviation += variationMinutes;
+                 }
+
+                 const cumulativeFormatted = cumulativeDeviation !== 0 ? formatDiffMinutes(cumulativeDeviation) : '—';
+                 const cumulativeColor = cumulativeDeviation > 5 ? 'text-red-500' : (cumulativeDeviation < -5 ? 'text-blue-500' : '');
+
+                 const teamOptions = teams.map(team => `<option value="${team}" ${item.equipe === team ? 'selected' : ''}>${team}</option>`).join('');
+
+                 tableHtml += `<tr class="border-b border-gray-200 hover:bg-gray-50">
+                     <td class="py-3 px-4 font-semibold">
+                         <select onchange="window.updateDataAndRender('${item.day}', ${item.dayIndex}, 'day', this.value)" class="w-full bg-transparent focus:outline-none">
+                            <option value="sabado" ${item.day === 'sabado' ? 'selected' : ''}>Sábado</option>
+                            <option value="domingo" ${item.day === 'domingo' ? 'selected' : ''}>Domingo</option>
+                         </select>
+                     </td>
+                     <td class="py-3 px-4"><input type="text" class="w-full bg-transparent focus:outline-none" value="${item.atividade}" onblur="window.updateDataAndRender('${item.day}', ${item.dayIndex}, 'atividade', this.value)"></td>
+                     <td class="py-3 px-4"><select onchange="window.updateDataAndRender('${item.day}', ${item.dayIndex}, 'equipe', this.value)" class="w-full bg-transparent focus:outline-none"><option value="">Nenhuma</option>${teamOptions}</select></td>
+                     <td class="py-3 px-4"><input type="text" class="w-full bg-transparent focus:outline-none" value="${item.local || ''}" onblur="window.updateDataAndRender('${item.day}', ${item.dayIndex}, 'local', this.value)"></td>
+                     <td class="py-3 px-4">
+                         <input type="text" inputmode="numeric" placeholder="HH:mm" class="planned-time-input bg-transparent" value="${item.inicioPrevisto}" onblur="window.formatAndSaveTime(event, '${item.day}', ${item.dayIndex}, 'inicioPrevisto')">
+                         <span>-</span>
+                         <input type="text" inputmode="numeric" placeholder="HH:mm" class="planned-time-input bg-transparent" value="${item.fimPrevisto}" onblur="window.formatAndSaveTime(event, '${item.day}', ${item.dayIndex}, 'fimPrevisto')">
+                     </td>
+                     <td class="py-3 px-4">
+                         <input type="text" inputmode="numeric" placeholder="HH:mm" class="planned-time-input bg-transparent" value="${item.inicioReal}" onblur="window.formatAndSaveTime(event, '${item.day}', ${item.dayIndex}, 'inicioReal')">
+                         <span>-</span>
+                         <input type="text" inputmode="numeric" placeholder="HH:mm" class="planned-time-input bg-transparent" value="${item.fimReal}" onblur="window.formatAndSaveTime(event, '${item.day}', ${item.dayIndex}, 'fimReal')">
+                     </td>
+                     <td class="py-3 px-4"><input type="text" class="w-full bg-transparent focus:outline-none" value="${item.observacoes || ''}" onblur="window.updateDataAndRender('${item.day}', ${item.dayIndex}, 'observacoes', this.value)"></td>
+                     <td class="py-3 px-4 font-semibold text-nowrap ${cumulativeColor}">${cumulativeFormatted}</td>
+                     <td class="py-3 px-4 flex items-center gap-2">
+                         <button class="btn btn-success btn-icon" title="Adicionar atividade abaixo" onclick="window.addNewActivity('${item.day}', ${item.dayIndex + 1})"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg></button>
+                         <button class="btn btn-danger btn-icon" title="Remover atividade" onclick="window.showDeleteModal('${item.day}', ${item.dayIndex})"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg></button>
+                     </td>
+                 </tr>`;
             });
              tableHtml += `</tbody></table>`;
              container.innerHTML = tableHtml;
         };
         
         window.exportAllToCsv = () => {
-             const day1Csv = window.createCsv(cronogramaData.sabado);
-             const day2Csv = window.createCsv(cronogramaData.domingo);
+             const day1Csv = window.createCsv('sabado');
+             const day2Csv = window.createCsv('domingo');
              window.downloadCsv(day1Csv, 'cronograma_sabado.csv');
              window.downloadCsv(day2Csv, 'cronograma_domingo.csv');
              showNotification("Exportado!", "Dois ficheiros CSV foram gerados e descarregados para Sábado e Domingo.");
@@ -801,15 +853,16 @@
         window.exportDayToCsv = (day) => {
              const data = cronogramaData[day];
              if (!data || data.length === 0) return showNotification("Aviso", `Não há dados para exportar para o dia ${day}.`);
-             const csv = window.createCsv(data);
+             const csv = window.createCsv(day);
              window.downloadCsv(csv, `cronograma_${day}.csv`);
         };
         
-        window.createCsv = (data) => {
-             const headers = ["Atividade", "Equipe", "Início Previsto", "Fim Previsto", "Início Real", "Fim Real", "Observações"];
+        window.createCsv = (day) => {
+             const data = cronogramaData[day];
+             const headers = ["Atividade", "Local", "Equipe", "Início Previsto", "Fim Previsto", "Início Real", "Fim Real", "Observações"];
              let csv = headers.join(',') + '\n';
              data.forEach(item => {
-                 const row = [`"${(item.atividade || '').replace(/"/g, '""')}"`, `"${(item.equipe || '').replace(/"/g, '""')}"`, item.inicioPrevisto || '', item.fimPrevisto || '', item.inicioReal || '', item.fimReal || '', `"${(item.observacoes || '').replace(/"/g, '""')}"`];
+                 const row = [`"${(item.atividade || '').replace(/"/g, '""')}"`, `"${(item.local || '').replace(/"/g, '""')}"`, `"${(item.equipe || '').replace(/"/g, '""')}"`, item.inicioPrevisto || '', item.fimPrevisto || '', item.inicioReal || '', item.fimReal || '', `"${(item.observacoes || '').replace(/"/g, '""')}"`];
                  csv += row.join(',') + '\n';
              });
              return csv;
@@ -846,15 +899,15 @@
 
             try {
                  for (const team of teams) {
-                    const publicDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', team);
-                    await setDoc(publicDocRef, {
-                        userId: userId,
-                        publishedAt: new Date().toISOString(),
-                        data: cronogramaData // Publica todo o cronograma para cada equipe
-                    });
-                }
-                statusEl.textContent = `Cronograma publicado para todas as equipes com sucesso!`;
-                await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'publication', 'status'), { lastPublished: new Date().toISOString() });
+                     const publicDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', team);
+                     await setDoc(publicDocRef, {
+                         userId: userId,
+                         publishedAt: new Date().toISOString(),
+                         data: cronogramaData // Publica todo o cronograma para cada equipe
+                     });
+                 }
+                 statusEl.textContent = `Cronograma publicado para todas as equipes com sucesso!`;
+                 await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'publication', 'status'), { lastPublished: new Date().toISOString() });
             } catch (e) {
                 console.error("Erro ao publicar:", e);
                 statusEl.textContent = 'Erro ao publicar. Verifique sua conexão.';
@@ -872,10 +925,10 @@
 
             // Renderiza a lista de equipes gerenciáveis
             teamsListEl.innerHTML = teams.map(team => `
-                <div class="flex items-center bg-white p-2 rounded-full shadow-sm text-sm border border-gray-200">
-                    <span class="font-semibold px-2">${team}</span>
-                    <button onclick="window.removeTeam('${team}')" class="ml-2 text-red-500 hover:text-red-700 focus:outline-none">&times;</button>
-                </div>
+                 <div class="flex items-center bg-white p-2 rounded-full shadow-sm text-sm border border-gray-200">
+                     <span class="font-semibold px-2">${team}</span>
+                     <button onclick="window.removeTeam('${team}')" class="ml-2 text-red-500 hover:text-red-700 focus:outline-none">&times;</button>
+                 </div>
             `).join('');
 
             // Popula o dropdown de equipes para geração de link
@@ -892,25 +945,25 @@
             
             const linkText = {
                 'full': 'Programação Completa',
-                'summary': 'Resumo do Dia',
-                'team': 'Visualização da Equipe'
+                'sabado': 'Sábado',
+                'domingo': 'Domingo'
             }[view];
 
             const linkHtml = `
-                <div class="bg-white p-4 rounded-lg shadow-sm">
-                    <p class="font-semibold text-lg mb-2">Link para a equipe "${team}" - ${linkText}:</p>
-                    <div class="flex items-center gap-2">
-                        <input type="text" class="flex-1 p-2 rounded-md border border-gray-300 bg-gray-50 text-sm" value="${publicUrl}" readonly>
-                        <button onclick="window.copyToClipboard('${publicUrl}', 'Link copiado!', this)" class="btn btn-primary btn-icon">
-                            <span class="default-icon">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                            </span>
-                            <span class="copied-icon hidden">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-                            </span>
-                        </button>
-                    </div>
-                </div>
+                 <div class="bg-white p-4 rounded-lg shadow-sm">
+                     <p class="font-semibold text-lg mb-2">Link para a equipe "${team}" - ${linkText}:</p>
+                     <div class="flex items-center gap-2">
+                         <input type="text" class="flex-1 p-2 rounded-md border border-gray-300 bg-gray-50 text-sm" value="${publicUrl}" readonly>
+                         <button onclick="window.copyToClipboard('${publicUrl}', 'Link copiado!', this)" class="btn btn-primary btn-icon">
+                             <span class="default-icon">
+                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                             </span>
+                             <span class="copied-icon hidden">
+                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                             </span>
+                         </button>
+                     </div>
+                 </div>
             `;
             document.getElementById('generated-links-container').innerHTML += linkHtml;
         };
@@ -923,7 +976,7 @@
             if (!teamParam) return;
 
             publicModal.style.display = 'flex';
-            publicTitle.textContent = `Cronograma da Equipe: ${teamParam}`;
+            publicTitle.textContent = `Cronograma da Equipe: ${decodeURIComponent(teamParam)}`;
             publicContent.innerHTML = '<p class="text-center text-gray-500">A carregar cronograma...</p>';
 
             const publicDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', teamParam);
@@ -932,7 +985,13 @@
                 if (docSnap.exists()) {
                     const data = docSnap.data().data;
                     if (data) {
+                        publicContent.innerHTML = '';
+                        // RENDERIZAÇÃO DA ABA PÚBLICA DE ACORDO COM O PARÂMETRO 'view'
                         switch(viewParam) {
+                            case 'sabado':
+                            case 'domingo':
+                                renderPublicDailyView(publicContent, data[viewParam]);
+                                break;
                             case 'summary':
                                 renderPublicSummaryView(publicContent, data);
                                 break;
@@ -955,6 +1014,28 @@
                 publicContent.innerHTML = '<p class="text-center text-red-500 mt-8">Erro ao carregar. Verifique o link.</p>';
             });
         };
+        
+        const renderPublicDailyView = (container, data) => {
+             if (!data || data.length === 0) {
+                 container.innerHTML = `<p class="text-center text-gray-500 mt-8">Nenhum cronograma para este dia.</p>`;
+                 return;
+             }
+            
+             let htmlContent = data.map(item => {
+                 return `
+                 <div class="bg-white p-4 rounded-lg shadow-md border-l-4 border-indigo-500">
+                     <div class="flex justify-between items-center mb-2">
+                         <h4 class="font-semibold text-lg">${item.atividade}</h4>
+                         <span class="text-xs font-medium px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full">${item.equipe || 'N/A'}</span>
+                     </div>
+                     <p class="text-sm text-gray-600"><strong>Previsto:</strong> ${item.inicioPrevisto} - ${item.fimPrevisto}</p>
+                     <p class="text-sm text-gray-600"><strong>Local:</strong> ${item.local || 'N/A'}</p>
+                     ${item.observacoes ? `<p class="text-sm text-gray-600"><strong>Observações:</strong> ${item.observacoes}</p>` : ''}
+                 </div>
+                 `;
+             }).join('');
+             container.innerHTML = htmlContent;
+        }
 
         const renderPublicFullView = (container, data) => {
             let htmlContent = '';
@@ -963,16 +1044,16 @@
                     htmlContent += `<h3 class="text-xl font-bold mt-6 mb-2">${day.charAt(0).toUpperCase() + day.slice(1)}</h3>`;
                     data[day].forEach(item => {
                         htmlContent += `
-                        <div class="bg-white p-4 rounded-lg shadow-md border-l-4 border-indigo-500">
-                            <div class="flex justify-between items-center mb-2">
-                                <h4 class="font-semibold text-lg">${item.atividade}</h4>
-                                <span class="text-xs font-medium px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full">${item.equipe || 'N/A'}</span>
-                            </div>
-                            <p class="text-sm text-gray-600"><strong>Previsto:</strong> ${item.inicioPrevisto} - ${item.fimPrevisto}</p>
-                            <p class="text-sm text-gray-600"><strong>Local:</strong> ${item.local || 'N/A'}</p>
-                            ${item.observacoes ? `<p class="text-sm text-gray-600"><strong>Observações:</strong> ${item.observacoes}</p>` : ''}
-                        </div>
-                        `;
+                         <div class="bg-white p-4 rounded-lg shadow-md border-l-4 border-indigo-500">
+                             <div class="flex justify-between items-center mb-2">
+                                 <h4 class="font-semibold text-lg">${item.atividade}</h4>
+                                 <span class="text-xs font-medium px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full">${item.equipe || 'N/A'}</span>
+                             </div>
+                             <p class="text-sm text-gray-600"><strong>Previsto:</strong> ${item.inicioPrevisto} - ${item.fimPrevisto}</p>
+                             <p class="text-sm text-gray-600"><strong>Local:</strong> ${item.local || 'N/A'}</p>
+                             ${item.observacoes ? `<p class="text-sm text-gray-600"><strong>Observações:</strong> ${item.observacoes}</p>` : ''}
+                         </div>
+                         `;
                     });
                 }
             });
@@ -980,12 +1061,15 @@
         };
 
         const renderPublicSummaryView = (container, data) => {
+            // A função renderSummary já foi adaptada para ser mais genérica
             const today = new Date().getDay(); // 0 = domingo, 6 = sabado
             const currentDay = today === 6 ? 'sabado' : 'domingo';
             const dayData = data[currentDay] || [];
             if (dayData.length > 0) {
-                renderSummary(currentDay, dayData); // Reutiliza a função de resumo
-                container.innerHTML = document.getElementById(`resumo-${currentDay}-container`).innerHTML;
+                // Renderiza o resumo no container do modal, não no container da aba
+                let tempContainer = document.createElement('div');
+                renderSummary(currentDay, dayData, tempContainer);
+                container.innerHTML = tempContainer.innerHTML;
             } else {
                 container.innerHTML = `<p class="text-center text-gray-500 mt-8">Nenhum resumo publicado para o dia de hoje.</p>`;
             }
@@ -1000,17 +1084,17 @@
                     filteredData.forEach(item => {
                         const isAlert = item.alerta_equipe === team && item.alerta_mensagem;
                         htmlContent += `
-                        <div class="bg-white p-4 rounded-lg shadow-md border-l-4 ${isAlert ? 'border-yellow-500' : 'border-indigo-500'}">
-                            <div class="flex justify-between items-center mb-2">
-                                <h4 class="font-semibold text-lg">${item.atividade}</h4>
-                                ${isAlert ? `<span class="text-xs font-medium px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">Alerta</span>` : `<span class="text-xs font-medium px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full">${item.equipe || 'N/A'}</span>`}
-                            </div>
-                            <p class="text-sm text-gray-600"><strong>Previsto:</strong> ${item.inicioPrevisto} - ${item.fimPrevisto}</p>
-                            <p class="text-sm text-gray-600"><strong>Local:</strong> ${item.local || 'N/A'}</p>
-                            ${item.observacoes ? `<p class="text-sm text-gray-600"><strong>Observações:</strong> ${item.observacoes}</p>` : ''}
-                            ${isAlert ? `<div class="mt-2 pt-2 border-t border-gray-200"><p class="text-sm text-gray-800 font-semibold">Alerta para você:</p><p class="text-sm text-gray-600">${item.alerta_mensagem}</p></div>` : ''}
-                        </div>
-                        `;
+                         <div class="bg-white p-4 rounded-lg shadow-md border-l-4 ${isAlert ? 'border-yellow-500' : 'border-indigo-500'}">
+                             <div class="flex justify-between items-center mb-2">
+                                 <h4 class="font-semibold text-lg">${item.atividade}</h4>
+                                 ${isAlert ? `<span class="text-xs font-medium px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">Alerta</span>` : `<span class="text-xs font-medium px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full">${item.equipe || 'N/A'}</span>`}
+                             </div>
+                             <p class="text-sm text-gray-600"><strong>Previsto:</strong> ${item.inicioPrevisto} - ${item.fimPrevisto}</p>
+                             <p class="text-sm text-gray-600"><strong>Local:</strong> ${item.local || 'N/A'}</p>
+                             ${item.observacoes ? `<p class="text-sm text-gray-600"><strong>Observações:</strong> ${item.observacoes}</p>` : ''}
+                             ${isAlert ? `<div class="mt-2 pt-2 border-t border-gray-200"><p class="text-sm text-gray-800 font-semibold">Alerta para você:</p><p class="text-sm text-gray-600">${item.alerta_mensagem}</p></div>` : ''}
+                         </div>
+                         `;
                     });
                 }
             });
