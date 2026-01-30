@@ -1,2 +1,1 @@
 # ECC
-Cronograma ecc
